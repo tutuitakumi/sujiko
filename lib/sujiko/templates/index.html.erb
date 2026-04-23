@@ -5,18 +5,247 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= title %></title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      * { box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
+      .server-meta { color: #666; font-size: 0.9rem; margin-top: 0.5rem; }
+      .title-bar {
+        max-width: 24rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;
+        border: 1px solid #e0e0e0; border-radius: 6px; background: #fafafa;
+        font-size: 1.1rem; font-weight: 600;
+      }
+      .venue-block { max-width: min(100vw - 2rem, 24rem); margin-top: 1rem; }
+      .mae {
+        text-align: center; font-size: 0.85rem; color: #333;
+        margin-bottom: 0.2rem; letter-spacing: 0.1em;
+      }
+      #venue-floor {
+        position: relative; aspect-ratio: 1 / 1; width: 100%;
+        border: 3px solid #000; background: #fff; cursor: crosshair;
+        touch-action: none;
+      }
+      .shape-row { margin: 0.75rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+      .shape-row label { font-size: 0.9rem; }
+      .shape-row select { font: inherit; padding: 0.2rem 0.4rem; }
+      .pin-wrap {
+        position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center;
+        transform: translate(-50%, -100%); margin-top: -0.3rem; pointer-events: none;
+        white-space: nowrap; visibility: hidden;
+      }
+      .pin-wrap.is-visible { visibility: visible; }
+      .label-kokohen { font-size: 0.75rem; color: #c00; font-weight: 600; }
+      .label-arrow { font-size: 0.85rem; line-height: 1; color: #c00; }
+      .meeting-point {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: #c00; box-shadow: 0 0 0 1px #fff, 0 0 0 2px #c00; margin-top: 0.1rem; flex-shrink: 0;
+      }
+      .copy-row { margin: 0.75rem 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+      .copy-row button {
+        font: inherit; padding: 0.35rem 0.75rem; cursor: pointer;
+        border: 1px solid #333; border-radius: 6px; background: #fff;
+      }
+      .copy-row button:hover { background: #f3f3f3; }
+      #copy-url-status { font-size: 0.85rem; color: #0a0; min-height: 1.2em; }
     </style>
   </head>
   <body>
     <h1><%= title %></h1>
-    <p>ローカルサーバー: ポート <strong><%= port %></strong></p>
+    <p class="server-meta">ローカルサーバー: ポート <strong><%= port %></strong> — 図内をクリックで点を指定し、下のボタンでURLをコピーします</p>
+    <div class="title-bar" id="page-venue-title">場所：えー</div>
+    <div class="shape-row">
+      <label for="venue-shape">会場 (shape)</label>
+      <select id="venue-shape" aria-label="会場">
+        <option value="room_a">roomA / えー</option>
+        <option value="room_b">roomB / びー</option>
+        <option value="room_c">roomC / しー</option>
+        <option value="room_main">roomMain / めいんありーな</option>
+      </select>
+    </div>
+    <div class="copy-row">
+      <button type="button" id="copy-url-button">待ち合わせURLをコピー</button>
+      <span id="copy-url-status" class="copy-url-status" aria-live="polite"></span>
+    </div>
+    <div class="venue-block">
+      <div class="mae">まえ</div>
+      <div id="venue-floor" role="img" aria-label="会場フロア。クリックで点を打ちます。">
+        <div id="pin-wrap" class="pin-wrap" aria-hidden="true">
+          <span class="label-kokohen">このへん</span>
+          <span class="label-arrow">↓</span>
+          <div class="meeting-point"></div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@latest/dist/browser.script.iife.js"></script>
+    <script type="text/ruby">
+      require "js"
+      # tmp/tmp.md: 正規化座標・URL・会場定義
+      VENUE_LABELS = {
+        "room_a" => "えー",
+        "room_b" => "びー",
+        "room_c" => "しー",
+        "room_main" => "めいんありーな"
+      }
+      def normalize_shape_key(raw)
+        s = raw.to_s.strip.downcase
+        s = s.delete("^a-z0-9")
+        case s
+        when "square", "rooma", "rubykaigia", ""
+          "room_a"
+        when "roomb", "rubykaigib"
+          "room_b"
+        when "roomc", "rubykaigic"
+          "room_c"
+        when "roommain", "mainarena"
+          "room_main"
+        when "room_a", "room_b", "room_c", "room_main"
+          s
+        else
+          "room_a"
+        end
+      end
+      def url_shape_value(key)
+        case key
+        when "room_a" then "roomA"
+        when "room_b" then "roomB"
+        when "room_c" then "roomC"
+        when "room_main" then "roomMain"
+        else "roomA"
+        end
+      end
+      def nfloat(v, default = 0.5)
+        f = Float(v)
+        f = f.nan? || f.infinite? ? default : f
+        [[f, 0.0].max, 1.0].min
+      rescue ArgumentError, TypeError
+        default
+      end
+      $window = JS.global
+      $doc = $window[:document]
+      def fnum(x)
+        return 0.0 if x.nil?
+        Float(String(x).to_s)
+      rescue ArgumentError, TypeError
+        0.0
+      end
+      def event_client_xy(e)
+        return [0.0, 0.0] if e.nil?
+        [fnum(e[:clientX]), fnum(e[:clientY])]
+      end
+      def rect_size(el)
+        r = el.getBoundingClientRect
+        { l: fnum(r[:left]), t: fnum(r[:top]), w: fnum(r[:width]), h: fnum(r[:height]) }
+      end
+      def read_query
+        s = String($window[:location][:search] || "")
+        s = s[1, s.size] if s[0] == "?"
+        h = {}
+        s.split("&").each do |pair|
+          k, v = pair.split("=", 2)
+          next if k.to_s.empty?
+          h[k] = (v or "")
+        end
+        h
+      end
+      def build_full_share_url(shape_key, x, y)
+        qx = format("%.4f", nfloat(x, 0.5))
+        qy = format("%.4f", nfloat(y, 0.5))
+        sv = url_shape_value(shape_key)
+        origin = String($window[:location][:origin])
+        path = String($window[:location][:pathname] || "/")
+        origin + path + "?" + "shape=" + sv + "&x=" + qx + "&y=" + qy
+      end
+      def copy_to_clipboard(text)
+        t = $doc.createElement("textarea")
+        t[:value] = text
+        st = t[:style]
+        st[:position] = "fixed"
+        st[:left] = "0"
+        st[:top] = "0"
+        st[:opacity] = "0"
+        b = $doc[:body]
+        b.appendChild(t)
+        t[:focus] rescue t.call(:focus) rescue nil
+        t.call(:select) rescue t.select
+        r = $doc.call(:execCommand, "copy")
+        b.removeChild(t)
+        r
+      end
+      def set_copy_status(status_el, message)
+        return unless status_el
+        status_el[:textContent] = message
+        w = $window
+        t = 2200
+        w.call(:setTimeout, proc { status_el[:textContent] = "" }, t) if message != ""
+        nil
+      end
+      def update_venue_title(el, shape_key)
+        name = VENUE_LABELS[shape_key] || "えー"
+        el[:textContent] = "場所：" + name
+      end
+      def set_pin(wrap, xN, yN, show)
+        st = wrap[:style]
+        st[:left] = (xN * 100.0).to_s + "%"
+        st[:top] = (yN * 100.0).to_s + "%"
+        if show
+          wrap.setAttribute("class", "pin-wrap is-visible")
+          wrap.setAttribute("aria-hidden", "false")
+        else
+          wrap.setAttribute("class", "pin-wrap")
+          wrap.setAttribute("aria-hidden", "true")
+        end
+        nil
+      end
+      def on_floor_click(floor_el, wrap, sel, title_el, e)
+        x, y = event_client_xy(e)
+        z = rect_size(floor_el)
+        rw = [z[:w], 0.0001].max
+        rh = [z[:h], 0.0001].max
+        xN = nfloat((x - z[:l]) / rw, 0.5)
+        yN = nfloat((y - z[:t]) / rh, 0.5)
+        key = String(sel[:value])
+        set_pin(wrap, xN, yN, true)
+        update_venue_title(title_el, key)
+        $share_x = xN
+        $share_y = yN
+      end
+      def on_copy_url(sel, status_el)
+        key = String(sel[:value])
+        x = nfloat($share_x, 0.5) rescue 0.5
+        y = nfloat($share_y, 0.5) rescue 0.5
+        url = build_full_share_url(key, x, y)
+        ok = copy_to_clipboard(url)
+        set_copy_status(status_el, ok ? "コピーしました" : "コピーに失敗しました")
+        nil
+      end
+      $share_x = 0.5
+      $share_y = 0.5
+      fl = $doc.getElementById("venue-floor")
+      w = $doc.getElementById("pin-wrap")
+      sel = $doc.getElementById("venue-shape")
+      title_el = $doc.getElementById("page-venue-title")
+      copy_btn = $doc.getElementById("copy-url-button")
+      status_el = $doc.getElementById("copy-url-status")
+      if fl && w && sel && title_el && copy_btn && status_el
+        q = read_query
+        k = normalize_shape_key(q["shape"] || "roomA")
+        sel[:value] = k
+        update_venue_title(title_el, k)
+        x0 = nfloat(q["x"] || 0.5, 0.5)
+        y0 = nfloat(q["y"] || 0.5, 0.5)
+        if q["x"] && q["y"] && !q["x"].to_s.empty? && !q["y"].to_s.empty?
+          $share_x = x0
+          $share_y = y0
+          set_pin(w, x0, y0, true)
+        end
+        fl.addEventListener("click", proc { |e| on_floor_click(fl, w, sel, title_el, e) })
+        sel.addEventListener("change", proc {
+          k2 = String(sel[:value])
+          update_venue_title(title_el, k2)
+        })
+        copy_btn.addEventListener("click", proc { on_copy_url(sel, status_el) })
+        puts "ruby.wasm: #{RUBY_VERSION} (会場＋点 → コピーで ?shape&x&y 付きURL)"
+      else
+        warn "必須要素が足りません (venue-floor / pin-wrap / venue-shape / page-venue-title / copy 周り)"
+      end
+    </script>
   </body>
-  <script src="https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@latest/dist/browser.script.iife.js"></script>
-  <script type="text/ruby">
-    require "js"
-
-    puts RUBY_VERSION # (Printed to the Web browser console)
-    JS.global[:document].write "Hello, world!"
-  </script>
 </html>
