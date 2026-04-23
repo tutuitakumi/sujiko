@@ -296,6 +296,7 @@
       require "js"
       require "json"
       APP_TITLE = <%= title.inspect %>
+      COPY_PUBLIC_ORIGIN = <%= copy_public_origin_ruby %>
       # tmp/tmp.md: 正規化座標・URL・会場定義
       VENUE_LABELS = {
         "room_a" => "えー",
@@ -364,11 +365,18 @@
         end
         h
       end
+      def copy_url_origin
+        w = $window
+        if !COPY_PUBLIC_ORIGIN.nil? && !String(COPY_PUBLIC_ORIGIN).strip.empty?
+          return String(COPY_PUBLIC_ORIGIN).strip
+        end
+        String(w[:location][:origin])
+      end
       def build_full_share_url(shape_key, x, y)
         qx = format("%.4f", nfloat(x, 0.5))
         qy = format("%.4f", nfloat(y, 0.5))
         sv = url_shape_value(shape_key)
-        origin = String($window[:location][:origin])
+        origin = copy_url_origin
         path = String($window[:location][:pathname] || "/")
         origin + path + "?" + "shape=" + sv + "&x=" + qx + "&y=" + qy
       end

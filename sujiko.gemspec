@@ -8,8 +8,16 @@ Gem::Specification.new do |spec|
   spec.authors = ["tutuitakumi"]
   spec.email = ["takumi.github@gmail.com"]
 
-  spec.summary = "Sujiko is a simple web server for local development."
-  spec.description = "Sujiko is a simple web server for local development."
+  spec.summary = "Joke/toy gem: local dev server for a venue meetup map (GET /?shape&x&y). Not for production."
+  spec.description = <<~DESC.strip
+    Sujiko is a joke / toy Ruby gem: a small TCP server for local development, not for serious or
+    production use. It serves one page: a venue floor plan where
+    a meetup point is shown. Open GET / with optional query parameters shape, x, and y—the same
+    contract as a Rails Spots-style app and iOS: shape selects the room (e.g. roomA, with
+    normalization to internal ids like room_a); x and y are normalized coordinates from 0.0 to 1.0
+    (top-left of the white floor, independent of device pixels). Use it to preview map UI and to
+    build or verify share URLs (Safari, copy, etc.) before deploying.
+  DESC
   spec.homepage = "https://github.com/tutuitakumi/sujiko"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"

@@ -1,5 +1,22 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "optparse"
 require "sujiko"
-Sujiko::Server.start(port: ARGV[0])
+
+options = { port: nil, public_origin: nil }
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: sujiko [options] [PORT]\n\n"
+  opts.on(
+    "-o", "--public-origin URL",
+    "Origin for copied URLs (scheme://host[:port]; default: current page's location.origin)"
+  ) { |v| options[:public_origin] = v }
+  opts.on("-h", "--help", "Show this help") do
+    puts opts
+    exit 0
+  end
+end
+parser.parse!
+options[:port] = ARGV[0] if ARGV[0]
+
+Sujiko::Server.start(port: options[:port], public_origin: options[:public_origin])

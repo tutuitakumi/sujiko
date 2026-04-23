@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 require "erb"
+require "json"
 require "rbconfig"
 require "socket"
+require "uri"
 
 module Sujiko
   class Server
@@ -10,14 +12,14 @@ module Sujiko
     MAX_REQUEST_HEADER_SIZE = 16_384
     TEMPLATE = File.expand_path("templates/index.html.erb", __dir__)
 
-    def self.start(port: DEFAULT_PORT, out: $stdout, err: $stderr)
+    def self.start(port: DEFAULT_PORT, public_origin: nil, out: $stdout, err: $stderr)
       port = DEFAULT_PORT if port.nil?
-      new(port, out, err).start
+      new(port, out, err, public_origin).start
     end
 
     def start
       port = resolve_port
-      html = render_template(port: port)
+      html = render_template(port:)
       base_url = "http://127.0.0.1:#{port}"
       body_utf8 = html.encode(Encoding::UTF_8)
 
@@ -43,15 +45,57 @@ module Sujiko
 
     private
 
-    def initialize(port, out, err)
+    def initialize(port, out, err, public_origin = nil)
       @port_argument = port
       @out = out
       @err = err
+      @public_origin = validate_public_origin(public_origin)
     end
 
     def render_template(port:)
       body = File.read(TEMPLATE, encoding: "UTF-8")
-      ERB.new(body).result_with_hash(title: "Sujiko", port: port)
+      title = "Sujiko"
+      # text/ruby 内で `COPY_PUBLIC_ORIGIN = <%= copy_public_origin_ruby %>` として埋め込む（JSON の文字列リテラル = Ruby と互換のエスケープ）
+      copy_public_origin_ruby = @public_origin.nil? ? "nil" : JSON.generate(@public_origin)
+      ERB.new(body).result(binding)
+    end
+
+    def validate_public_origin(raw)
+      return nil if raw.nil?
+
+      s = raw.to_s.strip
+      return nil if s.empty?
+
+      u = URI.parse(s)
+      unless %w[http https].include?(u.scheme)
+        @err.puts "Sujiko: public_origin は http または https である必要があります。無視します: #{raw.inspect}"
+        return nil
+      end
+      unless u.host
+        @err.puts "Sujiko: public_origin にホストがありません。無視します: #{raw.inspect}"
+        return nil
+      end
+      if u.user || u.password
+        @err.puts "Sujiko: public_origin にユーザー情報は付けないでください。無視します: #{raw.inspect}"
+        return nil
+      end
+      if u.query || u.fragment
+        @err.puts "Sujiko: public_origin にクエリ・フラグメントは付けないでください。無視します: #{raw.inspect}"
+        return nil
+      end
+
+      pth = u.path
+      if pth && pth != "" && pth != "/"
+        @err.puts "Sujiko: public_origin にパスは付けないでください。無視します: #{raw.inspect}"
+        return nil
+      end
+
+      out = +"#{u.scheme}://#{u.host}"
+      out << ":#{u.port}" if u.port && !((u.scheme == "http" && u.port == 80) || (u.scheme == "https" && u.port == 443))
+      out
+    rescue URI::InvalidURIError
+      @err.puts "Sujiko: public_origin を解釈できません。無視します: #{raw.inspect}"
+      nil
     end
 
     def resolve_port

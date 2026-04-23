@@ -1,36 +1,76 @@
 # Sujiko
 
-It's joke gem. 
+**当然ジョーク用（お遊び）の gem です**  
+**This is a joke / toy gem — for fun and local experiments, not for production use.**
+
+A local development server for a **venue meetup map**: one `GET /` page with optional query parameters `shape`, `x`, and `y` (same rules as a Rails `SpotsController`-style app and the iOS URL builder). Normalized coordinates `0.0`–`1.0` with the top-left of the white floor as origin; `shape` picks the room (e.g. `roomA` → `room_a` after normalization). The server listens on `127.0.0.1` and, on macOS, opens your default browser on startup.
+
+Example: `http://127.0.0.1:4567/?shape=roomA&x=0.3&y=0.4`
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
+With Bundler, add to your `Gemfile`:
 
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle add sujiko
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Without Bundler:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem install sujiko
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+### CLI
+
+```bash
+sujiko                    # default port 4567
+sujiko 3000              # custom port
+```
+
+`--public-origin` / `-o` sets the **origin** (scheme, host, optional non-default port only—no path, query, or userinfo) for **copied** “meetup” URLs. If omitted, the page uses the browser’s current `location.origin`, same as before.
+
+From a cloned repository:
+
+```bash
+bundle exec sujiko
+```
+
+| Environment | Effect |
+|-------------|--------|
+| `SUJIKO_NO_BROWSER` | If set, the server does not open a browser on startup. |
+
+### `GET /` query parameters
+
+| Name | Meaning |
+|------|---------|
+| `shape` | Venue id (e.g. `roomA`); normalized server-side to internal ids like `room_a` / `room_b` / `room_c` / `room_main`. |
+| `x`, `y` | Normalized position on the white floor, each `0.0`–`1.0` (clamped; parse failures fall back to `0.5`). |
+
+The page reads these from the URL on load; use **Copy** in the UI to get a `?shape&x&y` link you can open in Safari or share. The copied URL’s **origin** follows `--public-origin` when the server was started with it; otherwise it matches the page you are viewing.
+
+### Programmatically
+
+```ruby
+require "sujiko"
+
+Sujiko::Server.start
+Sujiko::Server.start(port: 8080)
+```
+
+Press `Ctrl-C` to stop the server.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checkout, run `bin/setup` to install dependencies. Use `bin/console` for an interactive session.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+`bundle exec rake install` installs the gem locally. To release, bump the version in `lib/sujiko/version.rb` and run `bundle exec rake release` (creates a git tag, pushes commits, uploads the `.gem` to [rubygems.org](https://rubygems.org)).
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/sujiko.
+Bug reports and pull requests are welcome on GitHub: https://github.com/tutuitakumi/sujiko
 
 ## License
 
