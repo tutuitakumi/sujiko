@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= title %></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
     <style>
       * { box-sizing: border-box; }
       body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
@@ -45,6 +48,91 @@
       }
       .copy-row button:hover { background: #f3f3f3; }
       #copy-url-status { font-size: 0.85rem; color: #0a0; min-height: 1.2em; }
+      /* シネマティック（LP 断片風） */
+      #cinematic-root {
+        position: fixed; inset: 0; z-index: 100000; pointer-events: none;
+        display: flex; align-items: center; justify-content: center;
+        font-family: "Syne", "Inter", system-ui, sans-serif; color: #f2ece4;
+        visibility: hidden; opacity: 0; transition: opacity 0.35s ease, visibility 0.35s;
+      }
+      #cinematic-root.is-open { visibility: visible; opacity: 1; pointer-events: auto; }
+      .cinematic__dim {
+        position: absolute; inset: 0; background: #030303; opacity: 0; transition: opacity 0.45s ease;
+        box-shadow: inset 0 0 120px rgba(0,0,0,0.9);
+      }
+      .cinematic__dim.is-on { opacity: 1; }
+      .cinematic__stage {
+        position: relative; z-index: 1; width: 100%; max-width: 32rem; min-height: 60vh; padding: 2rem 1.5rem;
+        display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+        overflow: hidden;
+      }
+      .cinematic__beat {
+        position: absolute; left: 1.5rem; right: 1.5rem; text-align: left;
+        font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; opacity: 0; will-change: transform, opacity;
+      }
+      .cinematic__beat--title { font-size: clamp(2.2rem, 9vw, 3.5rem); top: 22%; }
+      .cinematic__beat--venue { font-size: clamp(1.6rem, 6vw, 2.4rem); top: 38%; }
+      @keyframes cine-in-left {
+        from { opacity: 0; transform: translate3d(-12%, 0, 0) skewX(-2deg); }
+        70% { opacity: 1; transform: translate3d(2%, 0, 0) skewX(0deg); }
+        to { opacity: 1; transform: translate3d(0, 0, 0); }
+      }
+      @keyframes cine-out-left {
+        to { opacity: 0; transform: translate3d(18%, 0, 0) skewX(3deg); }
+      }
+      @keyframes cine-in-right {
+        from { opacity: 0; transform: translate3d(14%, 0, 0) skewX(3deg); }
+        70% { opacity: 1; transform: translate3d(-1%, 0, 0); }
+        to { opacity: 1; transform: translate3d(0, 0, 0); }
+      }
+      @keyframes cine-out-right {
+        to { opacity: 0; transform: translate3d(-16%, 0, 0); }
+      }
+      .cinematic__beat.is-in--title   { animation: cine-in-left 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+      .cinematic__beat.is-out--title  { animation: cine-out-left 0.45s ease-in forwards; }
+      .cinematic__beat.is-in--venue   { animation: cine-in-right 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+      .cinematic__beat.is-out--venue  { animation: cine-out-right 0.45s ease-in forwards; }
+      .cinematic__dot {
+        position: absolute; left: 50%; top: 50%; width: min(32vmin, 10rem); height: min(32vmin, 10rem);
+        margin: calc(min(32vmin, 10rem) / -2) 0 0 calc(min(32vmin, 10rem) / -2);
+        border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff2a4a, #8a0000 62%, #1a0000 100%);
+        box-shadow: 0 0 0 1px #fff, 0 0 80px rgba(255,0,40,0.5), 0 0 140px rgba(255,0,60,0.25);
+        opacity: 0; pointer-events: none;
+      }
+      @keyframes cine-pulse {
+        0% { transform: scale(0.25); opacity: 0.4; }
+        40% { transform: scale(1.15); opacity: 1; }
+        100% { transform: scale(0.88); opacity: 0.92; }
+      }
+      .cinematic__dot.is-pulsing { animation: cine-pulse 0.52s ease-in-out 3; opacity: 1; }
+      .cinematic__final {
+        position: relative; z-index: 2; width: 100%;
+        border-left: 4px solid #e11; padding-left: 1.25rem; padding-top: 0.5rem; padding-bottom: 1rem;
+        opacity: 0; transform: translate3d(0, 1rem, 0) skewY(0.3deg);
+        transition: opacity 0.55s ease 0.1s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+      }
+      .cinematic__final.is-visible { opacity: 1; transform: translate3d(0, 0, 0) skewY(0); }
+      .cinematic__final kbd {
+        display: block; font-size: 0.65rem; font-family: "Space Mono", ui-monospace, monospace;
+        text-transform: uppercase; letter-spacing: 0.2em; color: #888; margin-bottom: 0.5rem;
+      }
+      .cinematic__row { margin: 0.6rem 0 1.1rem; }
+      .cinematic__row--venue .cinematic__final-venue { font-size: clamp(1.8rem, 6vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+      .cinematic__row-label { font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6a6a6a; margin-bottom: 0.15rem; }
+      .cinematic__row-body { font-size: 1rem; font-weight: 600; }
+      .cinematic__row-body--mono { font-family: "Space Mono", ui-monospace, monospace; font-size: 0.95rem; color: #c8beb4; }
+      .cinematic__back {
+        margin-top: 1.5rem; align-self: flex-start; cursor: pointer;
+        font: 600 0.8rem "Syne", sans-serif; letter-spacing: 0.2em; text-transform: uppercase;
+        padding: 0.65rem 1.2rem; background: transparent; color: #f2ece4;
+        border: 1px solid #444; border-radius: 0; transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .cinematic__back:hover, .cinematic__back:focus-visible { background: #e11; border-color: #e11; color: #fff; outline: none; }
+      @media (prefers-reduced-motion: reduce) {
+        .cinematic__beat, .cinematic__dot { animation: none !important; }
+        .cinematic__beat--title, .cinematic__beat--venue { opacity: 1 !important; transform: none !important; }
+        .cinematic__dot { opacity: 0.9; transform: scale(0.5); }
+      }
     </style>
   </head>
   <body>
@@ -74,9 +162,156 @@
         </div>
       </div>
     </div>
+    <div id="cinematic-root" class="cinematic" aria-hidden="true" aria-modal="true" role="dialog" inert>
+      <div class="cinematic__dim" aria-hidden="true"></div>
+      <div class="cinematic__stage">
+        <h2 class="cinematic__beat cinematic__beat--title" id="cin-beat-title"></h2>
+        <p class="cinematic__beat cinematic__beat--venue" id="cin-beat-venue"></p>
+        <div class="cinematic__dot" id="cin-dot" role="presentation"></div>
+        <div class="cinematic__final" id="cin-final" aria-hidden="true">
+          <div class="cinematic__row">
+            <span class="cinematic__row-label">area</span>
+            <p class="cinematic__row-body" id="cin-area-body"></p>
+          </div>
+          <div class="cinematic__row">
+            <span class="cinematic__row-label">position</span>
+            <p class="cinematic__row-body cinematic__row-body--mono" id="cin-xy-body"></p>
+          </div>
+          <div class="cinematic__row cinematic__row--venue">
+            <span class="cinematic__row-label">会場</span>
+            <p class="cinematic__final-venue" id="cin-venue-body"></p>
+          </div>
+          <button type="button" class="cinematic__back" id="cin-back">戻る</button>
+        </div>
+      </div>
+    </div>
+    <script>
+(function () {
+  const root = () => document.getElementById("cinematic-root");
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const reduceMotion = () =>
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var escHandler = null;
+
+  function closeCinematic() {
+    if (escHandler) {
+      document.removeEventListener("keydown", escHandler);
+      escHandler = null;
+    }
+    const el = root();
+    if (!el) return;
+    const dim = el.querySelector(".cinematic__dim");
+    const title = $("cin-beat-title");
+    const venue = $("cin-beat-venue");
+    const dot = $("cin-dot");
+    const final = $("cin-final");
+    if (final) { final.classList.remove("is-visible"); final.setAttribute("aria-hidden", "true"); }
+    if (title) { title.className = "cinematic__beat cinematic__beat--title"; title.textContent = ""; }
+    if (venue) { venue.className = "cinematic__beat cinematic__beat--venue"; venue.textContent = ""; }
+    if (dot) { dot.classList.remove("is-pulsing"); }
+    if (dim) dim.classList.remove("is-on");
+    el.classList.remove("is-open");
+    el.setAttribute("aria-hidden", "true");
+    el.setAttribute("inert", "");
+    document.body.style.overflow = "";
+  }
+
+  function fillFinal(p) {
+    const area = $("cin-area-body");
+    const xy = $("cin-xy-body");
+    const vn = $("cin-venue-body");
+    if (area) area.textContent = p.areaLabel != null ? p.areaLabel : "白フロア（会場図内）";
+    if (xy) {
+      const x = typeof p.x === "number" ? p.x : parseFloat(p.x) || 0.5;
+      const y = typeof p.y === "number" ? p.y : parseFloat(p.y) || 0.5;
+      xy.textContent = "x = " + x.toFixed(4) + "  ·  y = " + y.toFixed(4);
+    }
+    if (vn) vn.textContent = p.venueName != null ? p.venueName : "—";
+  }
+
+  function bindBack() {
+    const b = $("cin-back");
+    if (!b) return;
+    const h = function () { closeCinematic(); b.removeEventListener("click", h); };
+    b.addEventListener("click", h);
+  }
+
+  window.sujikoPlayCinematic = async function sujikoPlayCinematic(p) {
+    if (!p) return;
+    const el = root();
+    if (!el) return;
+    if (el.classList.contains("is-open")) return;
+    const dim = el.querySelector(".cinematic__dim");
+    const title = $("cin-beat-title");
+    const venueB = $("cin-beat-venue");
+    const dot = $("cin-dot");
+    const final = $("cin-final");
+    if (!title || !venueB || !dot || !final) return;
+    escHandler = function (e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeCinematic();
+      }
+    };
+    document.addEventListener("keydown", escHandler);
+    const titleText = p.title != null ? String(p.title) : "Sujiko";
+    const venueName = p.venueName != null ? String(p.venueName) : "—";
+
+    el.classList.add("is-open");
+    el.removeAttribute("inert");
+    el.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    if (reduceMotion()) {
+      if (dim) dim.classList.add("is-on");
+      fillFinal(p);
+      final.classList.add("is-visible");
+      final.setAttribute("aria-hidden", "false");
+      const back = $("cin-back");
+      if (back) { back.focus(); }
+      bindBack();
+      return;
+    }
+    if (dim) dim.classList.add("is-on");
+    await sleep(120);
+
+    title.textContent = titleText;
+    title.classList.add("is-in--title");
+    await sleep(800);
+    title.classList.remove("is-in--title");
+    title.classList.add("is-out--title");
+    await sleep(400);
+    title.classList.remove("is-out--title");
+    title.textContent = "";
+
+    venueB.textContent = "場所：" + venueName;
+    venueB.classList.add("is-in--venue");
+    await sleep(820);
+    venueB.classList.remove("is-in--venue");
+    venueB.classList.add("is-out--venue");
+    await sleep(400);
+    venueB.classList.remove("is-out--venue");
+    venueB.textContent = "";
+
+    dot.classList.add("is-pulsing");
+    await sleep(1700);
+    dot.classList.remove("is-pulsing");
+
+    fillFinal(p);
+    final.classList.add("is-visible");
+    final.setAttribute("aria-hidden", "false");
+    await sleep(80);
+    const back = $("cin-back");
+    if (back) { back.focus(); }
+    bindBack();
+  };
+})();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@latest/dist/browser.script.iife.js"></script>
     <script type="text/ruby">
       require "js"
+      require "json"
+      APP_TITLE = "Sujiko"
       # tmp/tmp.md: 正規化座標・URL・会場定義
       VENUE_LABELS = {
         "room_a" => "えー",
@@ -214,6 +449,17 @@
         url = build_full_share_url(key, x, y)
         ok = copy_to_clipboard(url)
         set_copy_status(status_el, ok ? "コピーしました" : "コピーに失敗しました")
+        if ok
+          vn = VENUE_LABELS[key] || "えー"
+          payload = {
+            "title" => APP_TITLE,
+            "venueName" => vn,
+            "x" => x,
+            "y" => y,
+            "areaLabel" => "白フロア（会場図の黒枠内）"
+          }
+          $window[:eval].call("sujikoPlayCinematic(#{payload.to_json})")
+        end
         nil
       end
       $share_x = 0.5
