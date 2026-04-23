@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "sujiko"
+Sujiko::Server.start(port: ARGV[0])
